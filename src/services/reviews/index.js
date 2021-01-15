@@ -16,15 +16,6 @@
  */
 const { response } = require("express")
 const express = require("express")
-const {
-	openTable,
-	insert,
-	checkId,
-	selectByField,
-	del,
-	linkFile,
-	toArray,
-} = require("../dbms")
 const { join } = require("path")
 const fs = require("fs-extra") //friendship ended with fs, fs extra is my new best friend
 const mongoose = require("mongoose")

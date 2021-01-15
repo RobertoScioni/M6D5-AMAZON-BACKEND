@@ -8,7 +8,6 @@ const mongoose = require("mongoose")
 /**
  * internal modules
  */
-const { initialize } = require("./services/dbms")
 const {
 	badRequest,
 	notFound,
@@ -24,7 +23,6 @@ const reviewRoutes = require("./services/reviews")
 const server = express()
 const port = process.env.PORT || 2001
 const publicFolder = process.env.PUBLIC || join(__dirname, "../public")
-initialize()
 
 //server initialization process
 server.use(cors())

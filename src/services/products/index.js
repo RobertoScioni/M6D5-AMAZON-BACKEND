@@ -23,15 +23,6 @@ const express = require("express")
 const mongoose = require("mongoose")
 const q2m = require("query-to-mongo")
 const ProductSchema = require("./schema")
-const {
-	openTable,
-	insert,
-	checkId,
-	selectByField,
-	toArray,
-	del,
-	linkFile,
-} = require("../dbms")
 const { join } = require("path")
 const fs = require("fs-extra") //friendship ended with fs, fs extra is my new best friend
 const multer = require("multer")
