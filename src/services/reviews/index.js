@@ -44,7 +44,7 @@ const valid = [
 		.exists()
 		.withMessage("name must exist"),
 	check("rate")
-		.isNumeric({ max: 5 })
+		.isInt({ max: 5, min: 0 })
 		.withMessage("rate must be a number and should be less then 5")
 		.exists()
 		.withMessage("rate must exist"),
@@ -57,7 +57,7 @@ router.get("/", async (req, res, next) => {
 			.sort(query.options.sort)
 			.skip(query.options.offset)
 			.limit(query.options.size)
-			.populate("article")
+			.populate("product")
 		res.send(reviews)
 	} catch (error) {
 		return next(error)
@@ -65,18 +65,32 @@ router.get("/", async (req, res, next) => {
 })
 
 router.get("/:id", async (req, res, next) => {
-	let body = null
 	try {
-		body = await openTable(table)
-		console.log(body)
+		const reviews = await ReviewSchema.findById(req.params.id).populate(
+			"product"
+		)
+		res.send(reviews)
 	} catch (error) {
-		console.error(error)
-		error.httpStatusCode = 500
-		next(error)
+		return next(error)
 	}
-	body = toArray(body, "_id")
-	body = body.filter((review) => review.elementId === req.params.id)
-	res.send(body)
+})
+
+router.get("/product/:id", async (req, res, next) => {
+	const product = new mongoose.Types.ObjectId(req.params.id) //`ObjectId(${req.params.id})`
+
+	try {
+		const query = q2m(req.query)
+		const reviews = await ReviewSchema.find({
+			product: product,
+		})
+			.sort(query.options.sort)
+			.skip(query.options.offset)
+			.limit(query.options.size)
+			.populate("product")
+		res.send(reviews)
+	} catch (error) {
+		return next(error)
+	}
 })
 
 router.post("/:productID", valid, async (req, res, next) => {

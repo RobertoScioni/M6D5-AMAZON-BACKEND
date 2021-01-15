@@ -22,7 +22,7 @@ const ReviewSchema = new Schema(
 const ReviewModel = model("Review", ReviewSchema)
 
 ReviewSchema.plugin(mongoosePaginate)
-ReviewSchema.static("findReviewWithProduct", async (id) => {
+ReviewSchema.static("findReviewWithProduct", async function (id) {
 	const review = await ReviewModel.findById(id).populate(product)
 	return review
 })

@@ -66,7 +66,7 @@ const valid = [
 router.get("/", async (req, res, next) => {
 	try {
 		const query = q2m(req.query)
-		const products = await ProductSchema.find()
+		const products = await ProductSchema.find(query)
 			.sort(query.options.sort)
 			.skip(query.options.offset)
 			.limit(query.options.size)
