@@ -27,6 +27,9 @@ const {
 } = require("../dbms")
 const { join } = require("path")
 const fs = require("fs-extra") //friendship ended with fs, fs extra is my new best friend
+const mongoose = require("mongoose")
+const q2m = require("query-to-mongo")
+const ReviewSchema = require("./schema")
 const multer = require("multer")
 const { writeFile } = require("fs-extra")
 const { check, validationResult } = require("express-validator")
@@ -40,29 +43,25 @@ const valid = [
 		.withMessage("minimum lenght is 3 characters")
 		.exists()
 		.withMessage("name must exist"),
-	check("elementId")
-		.isLength({ min: 14 })
-		.withMessage("product id too short")
-		.exists()
-		.withMessage("product id must be provided"),
 	check("rate")
-		.isNumeric()
-		.withMessage("price is usually a numeber")
+		.isNumeric({ max: 5 })
+		.withMessage("rate must be a number and should be less then 5")
 		.exists()
-		.withMessage("price must exist"),
+		.withMessage("rate must exist"),
 ]
 //routes
 router.get("/", async (req, res, next) => {
-	let body = null
 	try {
-		body = await openTable(table)
-		console.log(body)
+		const query = q2m(req.query)
+		const reviews = await ReviewSchema.find()
+			.sort(query.options.sort)
+			.skip(query.options.offset)
+			.limit(query.options.size)
+			.populate("article")
+		res.send(reviews)
 	} catch (error) {
-		console.error(error)
-		error.httpStatusCode = 500
-		next(error)
+		return next(error)
 	}
-	res.send(body)
 })
 
 router.get("/:id", async (req, res, next) => {
@@ -80,7 +79,7 @@ router.get("/:id", async (req, res, next) => {
 	res.send(body)
 })
 
-router.post("/", valid, async (req, res, next) => {
+router.post("/:productID", valid, async (req, res, next) => {
 	const errors = validationResult(req)
 	if (!errors.isEmpty()) {
 		const err = {}
@@ -90,27 +89,29 @@ router.post("/", valid, async (req, res, next) => {
 		next(err)
 		return
 	}
-	console.log("non dovrei esistere")
+	const review = { ...req.body }
+	review.product = req.params.productID
 	try {
-		let body = { ...req.body }
-		body.createdAt = new Date()
+		const newReview = new ReviewSchema(review)
+		const { _id } = await newReview.save()
 
-		const id = await insert(table, body, null)
-		res.send(id)
+		res.status(201).send(_id)
 	} catch (error) {
-		console.error(error)
-		error.httpStatusCode = 500
 		next(error)
 	}
 })
 
 router.delete("/:id", async (req, res, next) => {
 	try {
-		del(table, req.params.id)
-		res.send("deleted")
+		const review = await ReviewSchema.findByIdAndDelete(req.params.id)
+		if (review) {
+			res.send("Deleted")
+		} else {
+			const error = new Error(`Review with id ${req.params.id} not found`)
+			error.httpStatusCode = 404
+			next(error)
+		}
 	} catch (error) {
-		console.error(error)
-		error.httpStatusCode = 500
 		next(error)
 	}
 })
@@ -126,18 +127,22 @@ router.put("/:id", valid, async (req, res, next) => {
 		return
 	}
 	try {
-		let body = { ...req.body }
-		body.updatedAt = new Date()
-		let id = await insert(table, body, req.params.id)
-
-		if (typeof id === "object") {
-			throw id
+		const review = await ReviewSchema.findByIdAndUpdate(
+			req.params.id,
+			req.body,
+			{
+				runValidators: true,
+				new: true,
+			}
+		)
+		if (review) {
+			res.send(review)
+		} else {
+			const error = new Error(`Review with id ${req.params.id} not found`)
+			error.httpStatusCode = 404
+			next(error)
 		}
-		console.log("this should be a string or an object i think ", typeof id)
-		res.send("ok")
 	} catch (error) {
-		console.error(error)
-		error.httpStatusCode = error.hasOwnProperty("httpStatusCode") || 500
 		next(error)
 	}
 })
@@ -146,7 +151,7 @@ router.post("/:id/image", upload.single("picture"), async (req, res, next) => {
 	try {
 		const dest = join(
 			__dirname,
-			"../../../public/img/products",
+			"../../../public/img/reviews",
 			req.file.originalname
 		)
 
@@ -158,7 +163,7 @@ router.post("/:id/image", upload.single("picture"), async (req, res, next) => {
 			table,
 			req.params.id,
 			"image",
-			`http://localhost:${process.env.PORT || 2001}/img/products/${
+			`http://localhost:${process.env.PORT || 2001}/img/reviews/${
 				req.file.originalname
 			}`
 		)

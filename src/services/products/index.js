@@ -20,6 +20,9 @@
  */
 const { response } = require("express")
 const express = require("express")
+const mongoose = require("mongoose")
+const q2m = require("query-to-mongo")
+const ProductSchema = require("./schema")
 const {
 	openTable,
 	insert,
@@ -61,22 +64,16 @@ const valid = [
 ]
 //routes
 router.get("/", async (req, res, next) => {
-	let body = null
-
 	try {
-		body = await openTable("products.json")
-		console.log(body)
+		const query = q2m(req.query)
+		const products = await ProductSchema.find()
+			.sort(query.options.sort)
+			.skip(query.options.offset)
+			.limit(query.options.size)
+		res.send(products)
 	} catch (error) {
-		console.error(error)
-		error.httpStatusCode = 500
-		next(error)
+		return next(error)
 	}
-	body = toArray(body, "_id")
-	if (req.query.hasOwnProperty("category")) {
-		body = body.filter((product) => product.category === req.query.category) //selectByField("products.json", "category", req.query.category, 1)
-	}
-
-	res.send(body)
 })
 
 router.post("/", valid, async (req, res, next) => {
@@ -89,49 +86,49 @@ router.post("/", valid, async (req, res, next) => {
 		next(err)
 		return
 	}
-	//console.log("non dovrei esistere")
 	try {
-		let body = { ...req.body }
-		body.createdAt = new Date()
+		const newProduct = new ProductSchema(req.body)
+		const { _id } = await newProduct.save()
 
-		const id = await insert("products.json", body, null)
-		res.send(id)
+		res.status(201).send(_id)
 	} catch (error) {
-		console.error(error)
-		error.httpStatusCode = 500
 		next(error)
 	}
 })
 
 router.delete("/:id", async (req, res, next) => {
 	try {
-		del("products.json", req.params.id)
-		res.send("deleted")
+		const product = await ProductSchema.findByIdAndDelete(req.params.id)
+		if (product) {
+			res.send("Deleted")
+		} else {
+			const error = new Error(`Product with id ${req.params.id} not found`)
+			error.httpStatusCode = 404
+			next(error)
+		}
 	} catch (error) {
-		console.error(error)
-		error.httpStatusCode = 500
 		next(error)
 	}
 })
 
 router.put("/:id", valid, async (req, res, next) => {
-	const errors = validationResult(req)
-	if (!errors.isEmpty()) {
-		const err = {}
-		err.message = errors
-		console.log(err.message)
-		err.httpStatusCode = 400
-		next(err)
-		return
-	}
 	try {
-		let body = { ...req.body }
-		body.updatedAt = new Date()
-		insert("products.json", body, req.params.id)
-		res.send("ok")
+		const product = await ProductSchema.findByIdAndUpdate(
+			req.params.id,
+			req.body,
+			{
+				runValidators: true,
+				new: true,
+			}
+		)
+		if (product) {
+			res.send(product)
+		} else {
+			const error = new Error(`Product with id ${req.params.id} not found`)
+			error.httpStatusCode = 404
+			next(error)
+		}
 	} catch (error) {
-		console.error(error)
-		error.httpStatusCode = 500
 		next(error)
 	}
 })

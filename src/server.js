@@ -4,11 +4,17 @@
 const express = require("express")
 const cors = require("cors")
 const { join } = require("path")
+const mongoose = require("mongoose")
 /**
  * internal modules
  */
 const { initialize } = require("./services/dbms")
-const { badRequest, funny, catchAllHandler } = require("./services/error")
+const {
+	badRequest,
+	notFound,
+	forbidden,
+	catchAllHandler,
+} = require("./services/error")
 const productRoutes = require("./services/products")
 const reviewRoutes = require("./services/reviews")
 
@@ -27,14 +33,22 @@ server.use(express.static(publicFolder)) //overkill, i know
 server.use("/products", productRoutes)
 server.use("/reviews", reviewRoutes)
 server.use(badRequest)
-server.use(funny)
+server.use(notFound)
+server.use(forbidden)
 server.use(catchAllHandler)
 
 /**
  * start
  */
-server.listen(port, () => {
-	//console.clear()
-	console.log("server running on port: ", port)
-	console.log("serving files from ", publicFolder)
-})
+mongoose
+	.connect(process.env.MONGO_CONNECTION, {
+		useNewUrlParser: true,
+		useUnifiedTopology: true,
+		useFindAndModify: false,
+	})
+	.then(
+		server.listen(port, () => {
+			console.log("Running on port", port)
+		})
+	)
+	.catch((err) => console.log(err))
