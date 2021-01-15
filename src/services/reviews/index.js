@@ -53,10 +53,11 @@ const valid = [
 router.get("/", async (req, res, next) => {
 	try {
 		const query = q2m(req.query)
-		const reviews = await ReviewSchema.find()
+
+		const reviews = await ReviewSchema.find(query.criteria)
 			.sort(query.options.sort)
 			.skip(query.options.offset)
-			.limit(query.options.size)
+			.limit(query.options.limit)
 			.populate("product")
 		res.send(reviews)
 	} catch (error) {
@@ -161,30 +162,35 @@ router.put("/:id", valid, async (req, res, next) => {
 	}
 })
 
-router.post("/:id/image", upload.single("picture"), async (req, res, next) => {
-	try {
-		const dest = join(
-			__dirname,
-			"../../../public/img/reviews",
-			req.file.originalname
-		)
+router.post("/:id/image", upload.single("imageUrl"), async (req, res, next) => {
+	const dest = join(
+		__dirname,
+		"../../../public/img/reviews",
+		req.file.originalname
+	)
 
-		console.log("save image in ", dest)
-		console.log("buffer mime", req.file.mimetype)
-		console.log(req.file.buffer)
+	console.log("save image in ", dest)
+	console.log("buffer mime", req.file.mimetype)
+	console.log(req.file.buffer)
+	const update = {
+		imageUrl: `http://localhost:${process.env.PORT || 2001}/img/reviews/${
+			req.file.originalname
+		}`,
+	}
+	try {
 		await writeFile(dest, req.file.buffer)
-		linkFile(
-			table,
-			req.params.id,
-			"image",
-			`http://localhost:${process.env.PORT || 2001}/img/reviews/${
-				req.file.originalname
-			}`
-		)
-		res.send("ok")
+		const review = await ReviewSchema.findByIdAndUpdate(req.params.id, update, {
+			runValidators: true,
+			new: true,
+		})
+		if (review) {
+			res.send(review)
+		} else {
+			const error = new Error(`Product with id ${req.params.id} not found`)
+			error.httpStatusCode = 404
+			next(error)
+		}
 	} catch (error) {
-		console.error(error)
-		error.httpStatusCode = 500
 		next(error)
 	}
 })
